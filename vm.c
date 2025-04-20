@@ -75,7 +75,8 @@ static InterpretResult run() {
       break;
     }
     case OP_NEGATE: {
-      push(-pop());
+      *(vm.stackTop-1) = -(*(vm.stackTop-1));
+      // push(-pop());
       break;
     }
     case OP_RETURN: {

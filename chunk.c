@@ -45,6 +45,7 @@ void writeChunk(Chunk *chunk, uint8_t byte, int line) {
   chunk->count++;
 }
 int getLine(Chunk *chunk, int offset) {
+  // TODO: maybe use size_t for offset since it's an index in code array
   for (int i = 0; i < chunk->linesCount; i += 2) {
     if (chunk->lines[i] >= offset) {
       return chunk->lines[i + 1];

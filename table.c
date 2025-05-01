@@ -26,7 +26,7 @@ static Entry *findEntry(Entry *entries, int capacity, ObjString *key) {
     if (entry->key == NULL) {
       if (IS_NIL(entry->value)) {
         return tombstone != NULL ? tombstone : entry;
-      } else {
+      } else {  // BOOL_VAL(true)
         if (tombstone == NULL)
           tombstone = entry;
       }
@@ -85,6 +85,7 @@ bool tableDelete(Table *table, ObjString *key) {
   Entry *entry = findEntry(table->entries, table->capacity, key);
   if (entry->key == NULL)
     return false;
+  // tombstone
   entry->key = NULL;
   entry->value = BOOL_VAL(true);
   return true;

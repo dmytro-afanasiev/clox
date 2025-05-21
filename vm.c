@@ -31,8 +31,7 @@ static void runtimeError(const char *format, ...) {
     CallFrame *frame = &vm.frames[i];
     ObjFunction *function = frame->closure->function;
     size_t instruction = frame->ip - function->chunk.code - 1;
-    fprintf(stderr, "[line %d] in ",
-            getLine(&function->chunk, instruction));
+    fprintf(stderr, "[line %d] in ", getLine(&function->chunk, instruction));
     if (function->name == NULL) {
       fprintf(stderr, "script\n");
     } else {
@@ -106,6 +105,10 @@ static bool callValue(Value callee, int argCount) {
   runtimeError("Can only call functions and classes.");
   return false;
 }
+static ObjUpvalue *captureUpvalue(Value *local) {
+  ObjUpvalue *createdUpvalue = newUpvalue(local);
+  return createdUpvalue;
+}
 static bool isFalsey(Value value) {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
@@ -131,7 +134,7 @@ static InterpretResult run() {
   (frame->closure->function->chunk.constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define READ_CONSTANT_LONG()                                                   \
-  (frame->closure->function->chunk.constants                                            \
+  (frame->closure->function->chunk.constants                                   \
        .values[(READ_BYTE() << 16) | (READ_BYTE() << 8) | READ_BYTE()])
 #define BINARY_OP(valueType, op)                                               \
   do {                                                                         \
@@ -153,8 +156,9 @@ static InterpretResult run() {
       printf(" ]");
     }
     printf("\n");
-    disassembleInstruction(&frame->closure->function->chunk,
-                           (int)(frame->ip - frame->closure->function->chunk.code));
+    disassembleInstruction(
+        &frame->closure->function->chunk,
+        (int)(frame->ip - frame->closure->function->chunk.code));
 #endif
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
@@ -215,6 +219,16 @@ static InterpretResult run() {
         runtimeError("Undefined variable '%s'.", name->chars);
         return INTERPRET_RUNTIME_ERROR;
       }
+      break;
+    }
+    case OP_GET_UPVALUE: {
+      uint8_t slot = READ_BYTE();
+      push(*frame->closure->upvalues[slot]->location);
+      break;
+    }
+    case OP_SET_UPVALUE: {
+      uint8_t slot = READ_BYTE();
+      *frame->closure->upvalues[slot]->location = peek(0);
       break;
     }
     case OP_EQUAL: {
@@ -296,6 +310,15 @@ static InterpretResult run() {
       ObjFunction *function = AS_FUNCTION(READ_CONSTANT());
       ObjClosure *closure = newClosure(function);
       push(OBJ_VAL(closure));
+      for (int i = 0; i < closure->upvalueCount; i++) {
+        uint8_t isLocal = READ_BYTE();
+        uint8_t index = READ_BYTE();
+        if (isLocal) {
+          closure->upvalues[i] = captureUpvalue(frame->slots + index);
+        } else {
+          closure->upvalues[i] = frame->closure->upvalues[index];
+        }
+      }
       break;
     }
     case OP_RETURN: {
@@ -326,7 +349,7 @@ InterpretResult interpret(const char *source) {
   if (function == NULL)
     return INTERPRET_COMPILE_ERROR;
   push(OBJ_VAL(function));
-  ObjClosure* closure = newClosure(function);
+  ObjClosure *closure = newClosure(function);
   pop();
   push(OBJ_VAL(closure));
   call(closure, 0);

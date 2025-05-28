@@ -2,6 +2,7 @@
 
 #include "chunk.h"
 #include "memory.h"
+#include "vm.h"
 
 void initChunk(Chunk *chunk) {
   chunk->count = 0;
@@ -54,19 +55,21 @@ int getLine(Chunk *chunk, int offset) {
   return -1; // never happens?
 }
 int addConstant(Chunk *chunk, Value value) {
+  push(value);
   writeValueArray(&chunk->constants, value);
+  pop();
   return chunk->constants.count - 1;
 }
-void writeConstant(Chunk *chunk, Value value, int line){
-  int index = addConstant(chunk, value);
-  if (index > UINT8_MAX) {
-    writeChunk(chunk, OP_CONSTANT_LONG, line);
-
-    writeChunk(chunk, index>>16, line);
-    writeChunk(chunk, index>>8, line);
-    writeChunk(chunk, index, line);
-  } else {
-    writeChunk(chunk, OP_CONSTANT, line);
-    writeChunk(chunk, index, line);
-  }
-}
+/*void writeConstant(Chunk *chunk, Value value, int line){*/
+/*  int index = addConstant(chunk, value);*/
+/*  if (index > UINT8_MAX) {*/
+/*    writeChunk(chunk, OP_CONSTANT_LONG, line);*/
+/**/
+/*    writeChunk(chunk, index>>16, line);*/
+/*    writeChunk(chunk, index>>8, line);*/
+/*    writeChunk(chunk, index, line);*/
+/*  } else {*/
+/*    writeChunk(chunk, OP_CONSTANT, line);*/
+/*    writeChunk(chunk, index, line);*/
+/*  }*/
+/*}*/

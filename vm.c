@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -52,6 +53,11 @@ static void defineNative(const char *name, NativeFn function) {
 void initVM() {
   resetStack();
   vm.objects = NULL;
+  vm.bytesAllocated = 0;
+  vm.nextGC = 1024 * 1024;
+  vm.grayCount = 0;
+  vm.grayCapacity = 0;
+  vm.grayStack = NULL;
   initTable(&vm.globals);
   initTable(&vm.strings);
 
@@ -61,6 +67,7 @@ void freeVM() {
   freeTable(&vm.globals);
   freeTable(&vm.strings);
   freeObjects();
+  free(vm.grayStack);
 }
 void push(Value value) {
   *vm.stackTop = value;
@@ -127,9 +134,9 @@ static ObjUpvalue *captureUpvalue(Value *local) {
   }
   return createdUpvalue;
 }
-static void closeUpvalues(Value* last) {
+static void closeUpvalues(Value *last) {
   while (vm.openUpvalues != NULL && vm.openUpvalues->location >= last) {
-    ObjUpvalue* upvalue = vm.openUpvalues;
+    ObjUpvalue *upvalue = vm.openUpvalues;
     upvalue->closed = *upvalue->location;
     upvalue->location = &upvalue->closed;
     vm.openUpvalues = upvalue->next;
@@ -139,8 +146,8 @@ static bool isFalsey(Value value) {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 static void concatenate() {
-  ObjString *b = AS_STRING(pop());
-  ObjString *a = AS_STRING(pop());
+  ObjString *b = AS_STRING(peek(0));
+  ObjString *a = AS_STRING(peek(1));
   int length = a->length + b->length;
   char *chars = ALLOCATE(char, length + 1);
   memcpy(chars, a->chars, a->length);
@@ -148,6 +155,8 @@ static void concatenate() {
   chars[length] = '\0';
 
   ObjString *result = takeString(chars, length);
+  pop();
+  pop();
   push(OBJ_VAL(result));
 }
 

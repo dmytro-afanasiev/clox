@@ -25,6 +25,7 @@ typedef enum {
 } ObjType;
 struct Obj {
   ObjType type;
+  bool isMarked;
   struct Obj *next;
 };
 typedef struct {
